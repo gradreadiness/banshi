@@ -179,11 +179,12 @@ $('#ask').innerHTML=`<div class="band"><div class="w"><small>YOUR GRADUATION JOU
 const run=()=>showAsk($('#aq').value);$('#aq').oninput=run;$('#ago').onclick=run;
 $$('.chips button').forEach(b=>b.onclick=()=>{const f=pop[b.dataset.q];$('#aq').value=f.q;$('#ares').innerHTML=`<div class="card"><h3 class="aq">${f.q}</h3>${ansHtml(f)}</div>`})}
 function dbg(){const L=[];const t=(k,f)=>{let v;try{v=f()}catch(e){v='ERR '+((e&&e.message)||e)}L.push('<tr><td>'+k+'</td><td style="text-align:left;word-break:break-all">'+esc(String(v))+'</td></tr>')};
-t('เวอร์ชันหน้าเว็บ',()=>'d1-2026-11-13');t('LIFF_ID',()=>LIFF_ID||'(ว่าง)');t('liffState',()=>liffState);t('SDK โหลดแล้ว',()=>!!window.liff);
+t('เวอร์ชันหน้าเว็บ',()=>'d2-2026-11-14');t('LIFF_ID',()=>LIFF_ID||'(ว่าง)');t('liffState',()=>liffState);t('SDK โหลดแล้ว',()=>!!window.liff);
 t('isInClient',()=>liff.isInClient());t('isLoggedIn',()=>liff.isLoggedIn());t('OS',()=>liff.getOS());t('LIFF SDK',()=>liff.getVersion());t('LINE version',()=>liff.getLineVersion());t('context',()=>JSON.stringify(liff.getContext()));t('มี ID token',()=>!!liff.getIDToken());
 t('uid / ชื่อ',()=>(uid||'')+' / '+(uname||''));t('SYNC',()=>SYNC);t('lastErr',()=>lastErr?(lastErr.code+' '+(lastErr.detail||'')):'-');t('URL',()=>location.href);t('UA',()=>navigator.userAgent.slice(0,120));
-$('#debug').innerHTML=`<div class="band"><div class="w"><h1>ข้อมูลวินิจฉัย</h1><p>ถ่ายภาพหน้านี้ส่งให้ทีมผู้พัฒนา</p></div></div><div class="w pg"><div class="card"><div class="sc"><table>${L.join('')}</table></div></div><div class="sbar"><button class="btn pri" id="dl">ลอง liff.login()</button><button class="btn" id="ds">ลองซิงก์</button></div><div id="dr" class="mut" style="margin-top:10px"></div></div>`;
+$('#debug').innerHTML=`<div class="band"><div class="w"><h1>ข้อมูลวินิจฉัย</h1><p>ถ่ายภาพหน้านี้ส่งให้ทีมผู้พัฒนา</p></div></div><div class="w pg"><div class="card"><div class="sc"><table>${L.join('')}</table></div></div><div class="sbar"><button class="btn pri" id="dl">ลอง liff.login()</button><button class="btn" id="ds">ลองซิงก์</button><button class="btn" id="dr2">ล้างและล็อกอินใหม่</button></div><div id="dr" class="mut" style="margin-top:10px"></div></div>`;
 $('#dl').onclick=()=>{try{liff.login()}catch(e){$('#dr').textContent='login error: '+((e&&e.message)||e)}};
+$('#dr2').onclick=()=>relogin();
 $('#ds').onclick=async()=>{$('#dr').textContent='กำลังทดสอบ...';try{await api('sync');$('#dr').textContent='sync สำเร็จ'}catch(e){$('#dr').textContent='sync ผิดพลาด: '+(e.code||'')+' '+(e.detail||e.message||'')}}}
 function render(){home();acts();list();detail();ask();bind()}
 function route(){const h=location.hash.slice(1),gk=G.find(g=>'act-'+g.k===h);let v=['home','activities','checklist','ask','debug'].includes(h)?h:'home';if(gk){curG=gk.k;detail();bind();v='detail'}if(v==='debug')dbg();$$('.view').forEach(e=>e.classList.toggle('on',e.id===v));$$('nav a').forEach(a=>a.classList.toggle('on',a.dataset.v===(gk?'activities':v)));window.scrollTo(0,0)}
@@ -196,7 +197,7 @@ const stat=k=>done.includes(k)?'completed':'pending';
 async function api(action,extra){const t=window.liff&&LIFF_ID&&liff.isLoggedIn()?liff.getIDToken():null;if(!t){const e=new Error('noid');e.code='noid';throw e}let r;try{r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,id_token:t,...extra})})}catch(_){const e=new Error('net');e.code='net';throw e}if(!r.ok){let m='';try{const j=await r.json();m=String(j.error||j.message||'')}catch(_){}const e=new Error('http');e.code=r.status;e.detail=m;throw e}return r.json()}
 async function runFlush(){if(uid==='guest')return true;const ids=dirtyGet(),ok=[];for(const k of ids){const s=stat(k);try{await api('save_task',{task:{task_key:k,status:s}});ok.push([k,s])}catch(e){lastErr=e;break}}dirtySet(dirtyGet().filter(k=>!ok.some(([a,s])=>a===k&&s===stat(k))));return ok.length===ids.length}
 const flush=()=>chain=chain.then(runFlush,runFlush);
-const syncFail=e=>{const c=e&&e.code,d=(e&&e.detail)||'';setSync(c==='noid'?'ยังซิงก์ไม่ได้ · ต้องเปิดเว็บจากเมนู LINE และเปิดสิทธิ์ openid ใน LIFF':c==='net'?'เชื่อมต่อฟังก์ชันไม่ได้ · เบราว์เซอร์ปฏิเสธคำขอ (ตรวจ CORS / Verify JWT) · เก็บในเครื่องไว้ก่อน':c===401&&/^invalid token/i.test(d)?'LINE ปฏิเสธ token · '+d+' · เก็บในเครื่องไว้ก่อน':c===401&&/token expired/i.test(d)?'เซสชันหมดอายุ · ปิดแล้วเปิดเว็บจากเมนู LINE ใหม่':'ซิงก์ไม่สำเร็จ (รหัส '+(c||'?')+(d?': '+d:'')+') · เก็บในเครื่องไว้ก่อน')};
+const syncFail=e=>{const c=e&&e.code,d=(e&&e.detail)||'';if(c===401&&/expired/i.test(d)&&autoRelogin())return setSync('เซสชันหมดอายุ · กำลังเข้าสู่ระบบใหม่…');setSync(c==='noid'?'ยังซิงก์ไม่ได้ · ต้องเปิดเว็บจากเมนู LINE และเปิดสิทธิ์ openid ใน LIFF':c==='net'?'เชื่อมต่อฟังก์ชันไม่ได้ · เบราว์เซอร์ปฏิเสธคำขอ (ตรวจ CORS / Verify JWT) · เก็บในเครื่องไว้ก่อน':c===401&&/expired/i.test(d)?'เซสชันหมดอายุ · กดปุ่ม “เชื่อมต่อ LINE” เพื่อเข้าสู่ระบบใหม่ หรือเปิดจากลิงก์ LIFF':c===401&&/^invalid token/i.test(d)?'LINE ปฏิเสธ token · '+d+' · เก็บในเครื่องไว้ก่อน':c===401&&/token expired/i.test(d)?'เซสชันหมดอายุ · ปิดแล้วเปิดเว็บจากเมนู LINE ใหม่':'ซิงก์ไม่สำเร็จ (รหัส '+(c||'?')+(d?': '+d:'')+') · เก็บในเครื่องไว้ก่อน')};
 function push(k){if(uid==='guest')return;const a=dirtyGet();if(!a.includes(k))a.push(k);dirtySet(a);flush().then(ok=>ok?setSync('ซิงก์กับบัญชี LINE แล้ว'):syncFail(lastErr))}
 async function pull(){setSync('กำลังซิงก์…');try{await flush();const r=await api('sync'),rem=r.tasks.filter(t=>t.status==='completed').map(t=>t.task_key);
 if(!r.tasks.length&&done.length){dirtySet([...new Set([...dirtyGet(),...done])]);await flush()}
@@ -205,14 +206,19 @@ try{localStorage.setItem(key(),JSON.stringify(done))}catch(e){}
 setSync(dirtyGet().length?'ซิงก์ไม่ครบ · เก็บในเครื่องไว้ก่อน จะลองใหม่ภายหลัง':'ซิงก์กับบัญชี LINE แล้ว')}catch(e){syncFail(e)}}
 const lgBtn=()=>{$('#lg').innerHTML=uname?I('user',14)+' '+esc(uname):'เชื่อมต่อ LINE'};
 $('#lg').onclick=()=>{
+if(uname&&/หมดอายุ/.test(SYNC)&&window.liff&&!liff.isInClient())return relogin();
 if(uname)return modal('บัญชี LINE','<p>เชื่อมต่อแล้วในชื่อ '+esc(uname)+'</p><p class="mut">'+esc(SYNC)+'</p>');
 if(!LIFF_ID)return modal('เชื่อมต่อ LINE','<p>ยังไม่ได้ตั้งค่า LIFF ID ในไฟล์เว็บ</p>');
 if(liffState==='loading')return modal('เชื่อมต่อ LINE','<p>กำลังเชื่อมต่อกับ LINE กรุณารอสักครู่แล้วกดอีกครั้ง</p>');
 if(liffState==='ready'&&window.liff&&!liff.isLoggedIn())return liff.login();
+if(/^noprofile/.test(liffState)&&window.liff)return relogin();
 modal('เชื่อมต่อ LINE ไม่สำเร็จ','<p>สถานะ: '+esc(liffState)+'</p><p class="mut">ถ้าเปิดนอกแอป LINE ให้เปิดจากลิงก์ LIFF ในแชท LINE ถ้าเปิดในแอปแล้วยังไม่ได้ ส่งข้อความสถานะนี้ให้ทีมผู้พัฒนา</p>')};
 let liffState='off';
+function cleanUrl(){try{const u=new URL(location.href),ks=['code','state','liffClientId','liffRedirectUri','liff.state'];if(ks.some(k=>u.searchParams.has(k))){ks.forEach(k=>u.searchParams.delete(k));history.replaceState(null,'',u.pathname+(u.search||'')+u.hash)}}catch(e){}}
+function relogin(){try{const u=new URL(location.href);['code','state','liffClientId','liffRedirectUri','liff.state'].forEach(k=>u.searchParams.delete(k));liff.logout();liff.login({redirectUri:u.origin+u.pathname+u.search})}catch(e){}}
+function autoRelogin(){try{if(!window.liff||liff.isInClient())return false;const k='gr-rl',t=+sessionStorage.getItem(k)||0;if(Date.now()-t<3e5)return false;sessionStorage.setItem(k,String(Date.now()));relogin();return true}catch(e){return false}}
 function initLiff(){if(!LIFF_ID)return;liffState='loading';const sc=document.createElement('script');sc.src='https://static.line-scdn.net/liff/edge/2/sdk.js';sc.onerror=()=>{liffState='nosdk (โหลด LINE SDK ไม่ได้)'};
-sc.onload=()=>liff.init({liffId:LIFF_ID}).then(()=>{liffState='ready';if(!liff.isLoggedIn())return;return liff.getProfile().then(p=>{uid=p.userId;uname=p.displayName;load();render();lgBtn();return pull()},e=>{liffState='noprofile: '+((e&&(e.code||e.message))||'')})}).catch(e=>{if(liffState==='loading')liffState='initfail: '+((e&&e.code?e.code+' ':'')+((e&&e.message)||''))});
+sc.onload=()=>liff.init({liffId:LIFF_ID}).then(()=>{liffState='ready';cleanUrl();if(!liff.isLoggedIn())return;return liff.getProfile().then(p=>{uid=p.userId;uname=p.displayName;load();render();lgBtn();return pull()},e=>{liffState='noprofile: '+((e&&(e.code||e.message))||'');autoRelogin()})}).catch(e=>{if(liffState==='loading')liffState='initfail: '+((e&&e.code?e.code+' ':'')+((e&&e.message)||''))});
 document.head.appendChild(sc)}
 window.addEventListener('hashchange',route);build(DEF);try{const c=SHEET_BASE&&JSON.parse(localStorage.getItem('gr-data')||'null');if(c&&c.groups&&c.groups.length&&c.steps&&c.steps.length)build(c)}catch(e){}render();route();initLiff();loadSheet().then(ok=>{if(ok)render()});
 </script>
