@@ -181,16 +181,16 @@ $$('.chips button').forEach(b=>b.onclick=()=>{const f=pop[b.dataset.q];$('#aq').
 function render(){home();acts();list();detail();ask();bind()}
 function route(){const h=location.hash.slice(1),gk=G.find(g=>'act-'+g.k===h);let v=['home','activities','checklist','ask'].includes(h)?h:'home';if(gk){curG=gk.k;detail();bind();v='detail'}$$('.view').forEach(e=>e.classList.toggle('on',e.id===v));$$('nav a').forEach(a=>a.classList.toggle('on',a.dataset.v===(gk?'activities':v)));window.scrollTo(0,0)}
 $('#mx').onclick=()=>$('#md').classList.remove('on');$('#md').onclick=e=>{if(e.target.id==='md')e.currentTarget.classList.remove('on')};document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#md').classList.remove('on')});
-let SYNC='โหมดผู้เยี่ยมชม · บันทึกในเครื่องนี้',chain=Promise.resolve();
+let SYNC='โหมดผู้เยี่ยมชม · บันทึกในเครื่องนี้',chain=Promise.resolve(),lastErr=null;
 const setSync=t=>{SYNC=t;render()};
 const dirtyGet=()=>{try{return JSON.parse(localStorage.getItem('gr-dirty-'+uid)||'[]')}catch(e){return[]}};
 const dirtySet=a=>{try{localStorage.setItem('gr-dirty-'+uid,JSON.stringify(a))}catch(e){}};
 const stat=k=>done.includes(k)?'completed':'pending';
-async function api(action,extra){const t=window.liff&&LIFF_ID&&liff.isLoggedIn()?liff.getIDToken():null;if(!t){const e=new Error('noid');e.code='noid';throw e}const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,id_token:t,...extra})});if(!r.ok){const e=new Error('http');e.code=r.status;throw e}return r.json()}
-async function runFlush(){if(uid==='guest')return true;const ids=dirtyGet(),ok=[];for(const k of ids){const s=stat(k);try{await api('save_task',{task:{task_key:k,status:s}});ok.push([k,s])}catch(e){break}}dirtySet(dirtyGet().filter(k=>!ok.some(([a,s])=>a===k&&s===stat(k))));return ok.length===ids.length}
+async function api(action,extra){const t=window.liff&&LIFF_ID&&liff.isLoggedIn()?liff.getIDToken():null;if(!t){const e=new Error('noid');e.code='noid';throw e}let r;try{r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,id_token:t,...extra})})}catch(_){const e=new Error('net');e.code='net';throw e}if(!r.ok){let m='';try{const j=await r.json();m=String(j.error||j.message||'')}catch(_){}const e=new Error('http');e.code=r.status;e.detail=m;throw e}return r.json()}
+async function runFlush(){if(uid==='guest')return true;const ids=dirtyGet(),ok=[];for(const k of ids){const s=stat(k);try{await api('save_task',{task:{task_key:k,status:s}});ok.push([k,s])}catch(e){lastErr=e;break}}dirtySet(dirtyGet().filter(k=>!ok.some(([a,s])=>a===k&&s===stat(k))));return ok.length===ids.length}
 const flush=()=>chain=chain.then(runFlush,runFlush);
-const syncFail=e=>setSync(e&&e.code==='noid'?'ยังซิงก์ไม่ได้ · ต้องเปิดเว็บจากเมนู LINE และเปิดสิทธิ์ openid ใน LIFF':e&&e.code===401?'เซสชันหมดอายุ · ปิดแล้วเปิดเว็บจากเมนู LINE ใหม่':'ซิงก์ไม่สำเร็จ · เก็บในเครื่องไว้ก่อน จะลองใหม่เมื่อเปิดหน้านี้หรือติ๊กอีกครั้ง');
-function push(k){if(uid==='guest')return;const a=dirtyGet();if(!a.includes(k))a.push(k);dirtySet(a);flush().then(ok=>ok?setSync('ซิงก์กับบัญชี LINE แล้ว'):setSync('ซิงก์ไม่สำเร็จ · เก็บในเครื่องไว้ก่อน จะลองใหม่เมื่อเปิดหน้านี้หรือติ๊กอีกครั้ง'))}
+const syncFail=e=>{const c=e&&e.code,d=(e&&e.detail)||'';setSync(c==='noid'?'ยังซิงก์ไม่ได้ · ต้องเปิดเว็บจากเมนู LINE และเปิดสิทธิ์ openid ใน LIFF':c==='net'?'เชื่อมต่อฟังก์ชันไม่ได้ · เบราว์เซอร์ปฏิเสธคำขอ (ตรวจ CORS / Verify JWT) · เก็บในเครื่องไว้ก่อน':c===401&&/^invalid token/i.test(d)?'LINE ปฏิเสธ token · '+d+' · เก็บในเครื่องไว้ก่อน':c===401&&/token expired/i.test(d)?'เซสชันหมดอายุ · ปิดแล้วเปิดเว็บจากเมนู LINE ใหม่':'ซิงก์ไม่สำเร็จ (รหัส '+(c||'?')+(d?': '+d:'')+') · เก็บในเครื่องไว้ก่อน')};
+function push(k){if(uid==='guest')return;const a=dirtyGet();if(!a.includes(k))a.push(k);dirtySet(a);flush().then(ok=>ok?setSync('ซิงก์กับบัญชี LINE แล้ว'):syncFail(lastErr))}
 async function pull(){setSync('กำลังซิงก์…');try{await flush();const r=await api('sync'),rem=r.tasks.filter(t=>t.status==='completed').map(t=>t.task_key);
 if(!r.tasks.length&&done.length){dirtySet([...new Set([...dirtyGet(),...done])]);await flush()}
 else{const d=dirtyGet();done=[...rem.filter(k=>!d.includes(k)),...d.filter(k=>done.includes(k))]}
